@@ -47,9 +47,9 @@ External API (TheDogAPI)
     dim_breeds + dim_temperament + fct_breed_metrics (Business-ready)
         ↓
     Streamlit Frontend (metric-only)
-        ├── frontend/filters.py → sidebar + SQL clauses
-        ├── frontend/overview.py → charts
-        └── frontend/finder.py → placeholder
+        ├── frontend/filters.py → sidebar + SQL clauses (metric-only)
+        ├── frontend/overview.py → charts (lifespan, size distribution, top temperaments)
+        └── frontend/finder.py → dataset-grounded assistant (streams via OpenAI; heuristic fallback)
 ```
 
 ## Environment Separation
@@ -107,3 +107,5 @@ The current `dbt_hsip_staging` dataset was created due to incorrect schema confi
 5. **Document schema changes** and data lineage
 6. **Monitor data freshness** and quality metrics
 7. **Prefer metric units** in UI for consistency (kg, cm)
+8. **Secrets management**: Streamlit requires `st.secrets["gcp_service_account"]`; optional `OPENAI_API_KEY` for assistant
+9. **Dataset scoping**: Set `PROJECT_DATASET` in `streamlit_app.py` to the correct `..._marts_core` dataset

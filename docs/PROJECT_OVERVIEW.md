@@ -50,7 +50,7 @@ This is a **production-ready data engineering project** featuring a functional E
 - **Transformation Tool**: dbt (data build tool) v1.5.0+
 - **dbt Adapter**: dbt-bigquery for BigQuery integration
 - **Testing**: dbt_utils and dbt_expectations packages
-- **Documentation**: dbt docs with auto-generated lineage graphs
+- **Documentation**: dbt docs with auto-generated lineage graphs; Streamlit docs added
 - **Version Control**: Git-based development workflow
 
 ### Current Implementation Status
@@ -162,6 +162,14 @@ This is a **production-ready data engineering project** featuring a functional E
 - **Dashboard Creation**: Self-service analytics via Looker Studio/Power BI
 - **Data Marketplace**: Productized datasets for pet industry partners
 
+### Learnings and Design Decisions
+
+- Metric-only UI avoids unit confusion and simplifies filter logic.
+- Temperament UNNEST must be in FROM/joined CTEs to keep filters valid in BigQuery.
+- Dataset scoping: the Streamlit app targets a single dataset prefix via `PROJECT_DATASET`; switch this per environment.
+- Assistant grounding: always pass a compact, clipped dataset excerpt to reduce hallucinations.
+- Quota resilience: fall back to deterministic heuristic recommendations when OpenAI quota is exceeded.
+
 ### Project Maturity Assessment
 
 #### **Production Ready Components**
@@ -196,6 +204,7 @@ The repository includes a modular Streamlit dashboard that reads directly from t
 - Metric-only UI (kg, cm) to ensure consistent units across visuals and filters
 - Tabs instead of sidebar navigation to keep the main view focused
 - Caching with `st.cache_data(ttl=600)` for responsive queries
+ - Assistant grounded strictly in the current filtered dataset; streams responses; heuristic fallback on quota
 
 ### Query Notes
 
@@ -212,4 +221,5 @@ streamlit run /Users/hendrik/Documents/Repositories2/dogs-as-a-service-pipeline/
 Requirements:
 
 - `st.secrets["gcp_service_account"]` configured with a valid BigQuery service account
+- Optional `st.secrets["OPENAI_API_KEY"]` for the assistant (heuristic fallback without it)
 - dbt marts available in the configured project (e.g., `..._marts_core` dataset)

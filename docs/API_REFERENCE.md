@@ -205,6 +205,25 @@ DLT automatically infers and creates the BigQuery schema. Key characteristics:
 
 **Write Mode:** REPLACE (full table refresh each run)
 
+## Streamlit Assistant Behavior
+
+### Overview
+- The Finder page (`frontend/finder.py`) offers a conversational assistant grounded in the current filtered dataset.
+- It streams responses from OpenAI when `OPENAI_API_KEY` is present; otherwise falls back to a heuristic recommender.
+- The assistant sees a compact, clipped excerpt of the dataset (breed, group, size, avg_weight_kg, avg_lifespan_years, family_suitability, temperament traits).
+
+### Secrets
+- `st.secrets["gcp_service_account"]`: required BigQuery service account JSON
+- `st.secrets["OPENAI_API_KEY"]`: optional; enables streaming responses via OpenAI
+
+### Quotas and Fallbacks
+- On insufficient OpenAI quota, the UI displays a warning and returns deterministic heuristic suggestions using the same dataset context.
+- The heuristic favors user-stated size, apartment suitability, family friendliness, activity/calm preferences, guard traits, and longer lifespan.
+
+### Dataset Configuration
+- The Streamlit app points at a single dataset prefix via `PROJECT_DATASET` in `streamlit_app.py`.
+- Adjust this to your environment: e.g., `...dog_explorer_dev_marts_core` for development.
+
 ## Error Handling
 
 ### HTTP Function Errors

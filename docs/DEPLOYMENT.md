@@ -53,6 +53,30 @@ python main.py
 python -c "from src.dog_api_pipeline import fetch_dog_breeds; print(len(list(fetch_dog_breeds())))"
 ```
 
+### 3. Streamlit Dashboard
+
+Create `.streamlit/secrets.toml` with:
+
+```toml
+[gcp_service_account]
+# Paste full service account JSON here
+
+# Optional: enable OpenAI-powered assistant in Finder tab
+OPENAI_API_KEY = "sk-..."
+```
+
+Run the app:
+
+```bash
+streamlit run /Users/hendrik/Documents/Repositories2/dogs-as-a-service-pipeline/streamlit_app.py
+```
+
+Update dataset in `streamlit_app.py` if needed:
+
+```python
+PROJECT_DATASET = "<project>.<dataset_prefix>.dog_explorer_dev_marts_core"
+```
+
 ### 3. Configure Google Cloud Credentials
 
 ```bash

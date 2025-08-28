@@ -145,6 +145,11 @@ dbt test --store-failures  # Store test failures for analysis
 
 ## 📈 Business Impact
 
+### Findings & Business Impact Narrative
+The Overview dashboard highlights that longevity skews toward small and toy companion breeds: the top cohort includes Toy Poodle, Maltese, Pekingese, and several terriers with expected lifespans around 14–17 years. Breed counts cluster in the medium and small size categories, with extra‑large breeds comparatively rare—signaling narrower supply and higher ownership costs. Among breeds rated highly for families, dominant temperament traits are intelligent, affectionate, alert, loyal and friendly, indicating lower training friction and reduced return‑to‑shelter risk.
+
+Business impact: adoption teams can prioritize small/medium, high‑affection/intelligence breeds for family placements to raise success rates; retailers and insurers can align assortments and pricing with the prevalent size mix and lifespan bands; training providers can productize curricula around the most common family‑friendly traits (playfulness, energy, protectiveness). The Find Your Own Dog assistant further shortens time‑to‑match by converting lifestyle descriptions into data‑grounded recommendations, consistently constrained by the active dataset filters.
+
 ### Analytical Insights Delivered
 - **Family Matching**: Optimal breed recommendations for households
 - **Longevity Analysis**: Breed lifespan patterns and predictions
