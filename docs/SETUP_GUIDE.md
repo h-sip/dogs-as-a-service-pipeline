@@ -233,7 +233,7 @@ gcloud functions deploy dog-pipeline-handler \
     --allow-unauthenticated \
     --memory 512MB \
     --timeout 540s \
-    --service-account dogs-pipeline-prod@YOUR_PROJECT_ID.iam.gserviceaccount.com
+    --update-env-vars BUCKET_URL=gs://dog-breed-raw-data,DESTINATION__BIGQUERY__LOCATION=europe-north2
 
 # Set up Cloud Scheduler for automated execution
 gcloud scheduler jobs create http dog-pipeline-scheduler \

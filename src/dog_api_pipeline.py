@@ -42,6 +42,10 @@ def save_to_cloud_storage(data: List[Dict[str, Any]], date_partition: str) -> No
     Save raw JSON data to Cloud Storage partitioned by date
     Using dlt's filesystem destination with GCS staging
     """
+    import os
+    os.environ.setdefault('BUCKET_URL', 'gs://dog-breed-raw-data')
+    os.environ.setdefault('DESTINATION__BIGQUERY__LOCATION', 'europe-north2')
+
     # Create filesystem pipeline for Cloud Storage
     filesystem_pipeline = dlt.pipeline(
         pipeline_name="dog_breeds_raw_storage",
