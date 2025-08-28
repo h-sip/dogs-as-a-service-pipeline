@@ -266,7 +266,10 @@ venv/
 env/
 
 # dbt
-.dbt/
+.dbt/profiles.yml
+.dbt/dbt_cloud.yml
+.dbt/logs/
+.dbt/.user.yml
 
 # Secrets
 dbt-sa.json
