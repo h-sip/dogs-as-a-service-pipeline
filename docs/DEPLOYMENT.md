@@ -30,8 +30,7 @@ Create a service account with these IAM roles:
 ### 1. Environment Preparation
 
 ```bash
-# Clone repository
-git clone https://github.com/hendrik-spl/dogs-as-a-service-pipeline.git
+# Navigate to project directory
 cd dogs-as-a-service-pipeline
 
 # Install UV (if not already installed)
@@ -40,8 +39,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Install dependencies
 uv sync
 
-# Set up Python version
-uv python install 3.11
+# Verify Python version (should be 3.11+)
+python --version
 ```
 
 ### 2. Local Testing
@@ -451,7 +450,500 @@ gcloud functions deploy dog-pipeline-handler \
 ```bash
 # Restore BigQuery table from backup
 bq cp YOUR_PROJECT_ID:bronze.dog_breeds@TIMESTAMP \
-    YOUR_PROJECT_ID:bronze.dog_breeds
+    YOUR_PROJECT_ID:bronze.dog_breeds_backup
 ```
 
-This deployment guide provides a comprehensive approach to deploying and managing the dogs-as-a-service-pipeline in production environments.
+---
+
+## dbt Analytics Layer Deployment
+
+### Overview
+
+The dbt analytics layer transforms bronze data into business-ready models. This section covers setting up and deploying the dbt project for both development and production environments.
+
+### Prerequisites for dbt
+
+#### Required Tools
+- **dbt-core** (≥1.5.0)
+- **dbt-bigquery** adapter 
+- **Google Cloud SDK** (for BigQuery authentication)
+
+#### Installation
+```bash
+# Install dbt with BigQuery adapter
+pip install dbt-core dbt-bigquery
+
+# Or using UV (recommended)
+uv add dbt-core dbt-bigquery
+
+# Verify installation
+dbt --version
+```
+
+### dbt Project Setup
+
+#### 1. Configure dbt Profile
+
+Create `~/.dbt/profiles.yml`:
+
+```yaml
+dog_breed_explorer:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: YOUR_PROJECT_ID
+      dataset: dog_explorer_dev
+      threads: 4
+      timeout_seconds: 300
+      location: US
+      priority: interactive
+      keyfile: /path/to/service-account.json
+      
+    prod:
+      type: bigquery
+      method: service-account
+      project: YOUR_PROJECT_ID
+      dataset: dog_explorer
+      threads: 8
+      timeout_seconds: 300
+      location: US
+      priority: interactive
+      keyfile: /path/to/service-account.json
+```
+
+#### 2. Alternative: Application Default Credentials (ADC)
+
+For production environments, use ADC instead of service account keys:
+
+```yaml
+dog_breed_explorer:
+  target: prod
+  outputs:
+    prod:
+      type: bigquery
+      method: oauth
+      project: YOUR_PROJECT_ID
+      dataset: dog_explorer
+      threads: 8
+      timeout_seconds: 300
+      location: US
+      priority: interactive
+```
+
+#### 3. Install dbt Dependencies
+
+```bash
+# Install dbt packages
+dbt deps
+
+# This installs:
+# - dbt_utils (utility macros)
+# - dbt_expectations (advanced testing)
+```
+
+### BigQuery Dataset Configuration
+
+#### 1. Create Analytics Datasets
+
+```bash
+# Development datasets
+bq mk --dataset \
+    --description "Development staging layer for dog breed analytics" \
+    YOUR_PROJECT_ID:dog_explorer_dev_staging
+
+bq mk --dataset \
+    --description "Development marts layer for dog breed analytics" \
+    YOUR_PROJECT_ID:dog_explorer_dev_marts_core
+
+# Production datasets  
+bq mk --dataset \
+    --description "Production staging layer for dog breed analytics" \
+    YOUR_PROJECT_ID:dog_explorer_staging
+
+bq mk --dataset \
+    --description "Production marts layer for dog breed analytics" \
+    YOUR_PROJECT_ID:dog_explorer_marts_core
+```
+
+#### 2. Grant Service Account Permissions
+
+```bash
+# Grant permissions to analytics datasets
+for dataset in "dog_explorer_dev_staging" "dog_explorer_dev_marts_core" "dog_explorer_staging" "dog_explorer_marts_core"; do
+    bq add-iam-policy-binding \
+        --member=serviceAccount:dogs-pipeline-service@YOUR_PROJECT_ID.iam.gserviceaccount.com \
+        --role=roles/bigquery.dataEditor \
+        YOUR_PROJECT_ID:$dataset
+done
+```
+
+### Development Workflow
+
+#### 1. Local Development
+
+```bash
+# Test connection
+dbt debug
+
+# Run staging models only
+dbt run --select staging
+
+# Run all models
+dbt run
+
+# Run tests
+dbt test
+
+# Generate and serve documentation
+dbt docs generate
+dbt docs serve --port 8081
+```
+
+#### 2. Model Development Cycle
+
+```bash
+# Develop specific model
+dbt run --select stg_dog_breeds
+
+# Test specific model
+dbt test --select stg_dog_breeds
+
+# Run model with downstream dependencies
+dbt run --select stg_dog_breeds+
+
+# Run marts layer
+dbt run --select marts.core
+```
+
+#### 3. Incremental Development
+
+```bash
+# Full refresh (recreate all tables)
+dbt run --full-refresh
+
+# Run only changed models
+dbt run --select state:modified
+
+# Validate schema changes
+dbt run --vars "validate_schema: true"
+```
+
+### Production Deployment
+
+#### 1. Production Environment Setup
+
+Create production deployment script `deploy_dbt_prod.sh`:
+
+```bash
+#!/bin/bash
+set -e
+
+echo "Starting dbt production deployment..."
+
+# Set production target
+export DBT_PROFILES_DIR=~/.dbt
+export DBT_TARGET=prod
+
+# Validate connection
+echo "Validating BigQuery connection..."
+dbt debug --target prod
+
+# Install dependencies
+echo "Installing dbt packages..."
+dbt deps
+
+# Run full pipeline with testing
+echo "Running dbt models..."
+dbt run --target prod
+
+echo "Running dbt tests..."
+dbt test --target prod
+
+# Generate documentation
+echo "Generating documentation..."
+dbt docs generate --target prod
+
+# Upload docs to Cloud Storage (optional)
+echo "Uploading documentation..."
+gsutil -m cp -r target/ gs://YOUR_PROJECT_ID-dbt-docs/
+
+echo "dbt production deployment completed successfully!"
+```
+
+#### 2. Automated Production Deployment
+
+Create Cloud Function for dbt deployment:
+
+**`dbt_deploy_function/main.py`:**
+```python
+import subprocess
+import os
+from google.cloud import storage
+
+def deploy_dbt_models(request):
+    """Cloud Function to deploy dbt models"""
+    try:
+        # Set environment variables
+        os.environ['DBT_PROFILES_DIR'] = '/tmp/.dbt'
+        os.environ['DBT_TARGET'] = 'prod'
+        
+        # Run dbt commands
+        subprocess.run(['dbt', 'deps'], check=True, cwd='/workspace')
+        subprocess.run(['dbt', 'run', '--target', 'prod'], check=True, cwd='/workspace')
+        subprocess.run(['dbt', 'test', '--target', 'prod'], check=True, cwd='/workspace')
+        
+        # Generate documentation
+        subprocess.run(['dbt', 'docs', 'generate', '--target', 'prod'], check=True, cwd='/workspace')
+        
+        return {"status": "success", "message": "dbt deployment completed"}
+    
+    except subprocess.CalledProcessError as e:
+        return {"status": "error", "message": f"dbt deployment failed: {str(e)}"}, 500
+```
+
+Deploy the dbt function:
+```bash
+gcloud functions deploy dbt-deploy-handler \
+    --runtime python311 \
+    --source dbt_deploy_function/ \
+    --entry-point deploy_dbt_models \
+    --trigger-http \
+    --timeout 540s \
+    --memory 2048MB \
+    --service-account dogs-pipeline-service@YOUR_PROJECT_ID.iam.gserviceaccount.com
+```
+
+#### 3. CI/CD Integration
+
+Create GitHub Actions workflow `.github/workflows/dbt_deploy.yml`:
+
+```yaml
+name: dbt Production Deployment
+
+on:
+  push:
+    branches: [main]
+    paths: ['models/**', 'dbt_project.yml', 'packages.yml']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dbt
+      run: |
+        pip install dbt-core dbt-bigquery
+        
+    - name: Set up Google Cloud Auth
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        
+    - name: Install dbt dependencies
+      run: dbt deps
+      
+    - name: Run dbt models
+      run: dbt run --target prod
+      
+    - name: Test dbt models  
+      run: dbt test --target prod
+      
+    - name: Generate documentation
+      run: dbt docs generate --target prod
+      
+    - name: Upload docs to Cloud Storage
+      run: gsutil -m cp -r target/ gs://${{ secrets.GCP_PROJECT }}-dbt-docs/
+```
+
+### Monitoring and Observability
+
+#### 1. dbt Model Monitoring
+
+Create BigQuery views for monitoring:
+
+```sql
+-- Model freshness monitoring
+CREATE OR REPLACE VIEW `YOUR_PROJECT_ID.monitoring.dbt_model_freshness` AS
+SELECT 
+    'dim_breeds' as model_name,
+    MAX(extracted_at) as last_update,
+    CURRENT_TIMESTAMP() as check_timestamp,
+    DATETIME_DIFF(CURRENT_DATETIME(), DATETIME(MAX(extracted_at)), HOUR) as hours_since_update
+FROM `YOUR_PROJECT_ID.dog_explorer_marts_core.dim_breeds`
+
+UNION ALL
+
+SELECT 
+    'fct_breed_metrics' as model_name,
+    MAX(extracted_at) as last_update,
+    CURRENT_TIMESTAMP() as check_timestamp,
+    DATETIME_DIFF(CURRENT_DATETIME(), DATETIME(MAX(extracted_at)), HOUR) as hours_since_update  
+FROM `YOUR_PROJECT_ID.dog_explorer_marts_core.fct_breed_metrics`
+
+UNION ALL
+
+SELECT 
+    'bronze_raw' as model_name,
+    MAX(extracted_at) as last_update,
+    CURRENT_TIMESTAMP() as check_timestamp,
+    DATETIME_DIFF(CURRENT_DATETIME(), DATETIME(MAX(extracted_at)), HOUR) as hours_since_update
+FROM `YOUR_PROJECT_ID.bronze.dog_breeds`;
+```
+
+#### 2. Data Quality Monitoring
+
+```sql
+-- Data quality dashboard
+CREATE OR REPLACE VIEW `YOUR_PROJECT_ID.monitoring.data_quality_summary` AS
+SELECT 
+    'Total Breeds' as metric,
+    COUNT(*) as value,
+    CURRENT_TIMESTAMP() as measured_at
+FROM `YOUR_PROJECT_ID.dog_explorer_marts_core.dim_breeds`
+
+UNION ALL
+
+SELECT 
+    'Breeds with Complete Data' as metric,
+    COUNT(*) as value,
+    CURRENT_TIMESTAMP() as measured_at
+FROM `YOUR_PROJECT_ID.dog_explorer_marts_core.dim_breeds`
+WHERE data_completeness_score = 4
+
+UNION ALL
+
+SELECT 
+    'Average Data Completeness' as metric,
+    ROUND(AVG(data_completeness_score), 2) as value,
+    CURRENT_TIMESTAMP() as measured_at
+FROM `YOUR_PROJECT_ID.dog_explorer_marts_core.dim_breeds`;
+```
+
+#### 3. Automated Testing Alerts
+
+Create alerting for dbt test failures:
+
+```bash
+# Create Cloud Monitoring alert for dbt test failures
+gcloud alpha monitoring policies create \
+    --policy-from-file=monitoring/dbt-test-failures-policy.yaml
+```
+
+### Performance Optimization
+
+#### 1. BigQuery Optimization
+
+```sql
+-- Add clustering to improve query performance
+ALTER TABLE `YOUR_PROJECT_ID.dog_explorer_marts_core.dim_breeds`
+CLUSTER BY breed_id;
+
+ALTER TABLE `YOUR_PROJECT_ID.dog_explorer_marts_core.fct_breed_metrics`  
+CLUSTER BY breed_id;
+
+ALTER TABLE `YOUR_PROJECT_ID.dog_explorer_marts_core.dim_temperament`
+CLUSTER BY breed_id;
+```
+
+#### 2. dbt Performance Configuration
+
+Update `dbt_project.yml` for production optimization:
+
+```yaml
+models:
+  dog_breed_explorer:
+    marts:
+      core:
+        +materialized: table
+        +cluster_by: breed_id
+        +partition_by:
+          field: extraction_date
+          data_type: date
+        +pre-hook: "{{ log('Running model: ' ~ this.identifier) }}"
+        +post-hook: "ANALYZE TABLE {{ this }}"
+```
+
+#### 3. Query Optimization
+
+```sql
+-- Example optimized query for analytics
+SELECT 
+    d.breed_name,
+    d.size_category,
+    f.avg_weight_lbs,
+    t.family_suitability
+FROM `{{ ref('dim_breeds') }}` d
+JOIN `{{ ref('fct_breed_metrics') }}` f USING (breed_id)  
+JOIN `{{ ref('dim_temperament') }}` t USING (breed_id)
+WHERE d.extraction_date = (SELECT MAX(extraction_date) FROM `{{ ref('dim_breeds') }}`)
+  AND f.has_weight_data = true
+  AND t.family_suitability = 'Excellent for Families'
+```
+
+### Troubleshooting dbt Issues
+
+#### 1. Common dbt Errors
+
+**Connection Issues:**
+```bash
+# Test BigQuery connection
+dbt debug --target prod
+
+# Verify service account permissions
+gcloud projects get-iam-policy YOUR_PROJECT_ID \
+    --filter="bindings.members:dogs-pipeline-service@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+```
+
+**Model Failures:**
+```bash  
+# Run with debug logging
+dbt run --debug --select failing_model_name
+
+# Check compiled SQL
+dbt compile --select failing_model_name
+cat target/compiled/dog_breed_explorer/models/marts/core/failing_model_name.sql
+```
+
+**Test Failures:**
+```bash
+# Run specific test with verbose output
+dbt test --select test_name --store-failures
+
+# Query test failure details
+SELECT * FROM `YOUR_PROJECT_ID.dbt_test__audit.failing_test`
+```
+
+#### 2. Performance Issues
+
+```bash
+# Profile query performance
+dbt run --profiles-dir . --profile-template
+
+# Use BigQuery query insights
+bq query --dry_run --use_legacy_sql=false < your_query.sql
+```
+
+#### 3. Documentation Issues
+
+```bash
+# Regenerate docs
+dbt docs generate --target prod
+
+# Serve docs locally for testing
+dbt docs serve --port 8080
+
+# Upload to Cloud Storage with proper permissions
+gsutil -m cp -r target/ gs://YOUR_BUCKET/dbt-docs/
+gsutil iam ch allUsers:objectViewer gs://YOUR_BUCKET/dbt-docs
+```
+
+This comprehensive deployment guide covers both the ETL pipeline and dbt analytics layer, providing end-to-end deployment capabilities for the complete data platform.

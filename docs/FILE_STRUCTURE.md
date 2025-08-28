@@ -4,29 +4,51 @@
 
 ```
 dogs-as-a-service-pipeline/
-├── .claude/
-│   └── settings.local.json          # Claude Code configuration
-├── .git/                            # Git repository metadata  
-├── .python-version                  # Python version specification
 ├── docs/                            # Project documentation
 │   ├── ARCHITECTURE.md              # System architecture and components
+│   ├── API_REFERENCE.md             # API schemas and data models
+│   ├── DEPLOYMENT.md                # Deployment guides and instructions
 │   ├── FILE_STRUCTURE.md            # This file - directory structure
 │   ├── PROJECT_OVERVIEW.md          # Project summary and roadmap
 │   └── README.md                    # Documentation overview
-├── src/                             # Source code directory
-│   └── dog_api_pipeline.py          # Main ETL pipeline implementation
-├── .gitignore                       # Python-focused ignore patterns
+├── src/                             # ETL Pipeline source code
+│   └── dog_api_pipeline.py          # Main ETL pipeline implementation (111 lines)
+├── models/                          # dbt transformation models
+│   ├── sources.yml                  # Source data definitions
+│   ├── staging/
+│   │   ├── stg_dog_breeds.sql       # Staging model with data cleaning
+│   │   └── schema.yml               # Staging tests and documentation
+│   └── marts/core/
+│       ├── dim_breeds.sql           # Master breed dimension
+│       ├── fct_breed_metrics.sql    # Physical measurements fact table
+│       ├── dim_temperament.sql      # Behavioral analysis dimension
+│       └── schema.yml               # Mart tests and documentation
+├── tests/                           # Custom dbt tests
+│   └── assert_breed_consistency_across_models.sql
+├── analyses/                        # dbt analysis files
+│   └── breed_insights.sql           # Sample analytical queries
+├── macros/                          # dbt macros (empty - available for future)
+├── dbt_packages/                    # Installed dbt packages
+├── dbt_internal_packages/           # dbt internal packages
+├── target/                          # dbt compile target directory
+├── data_sample.csv                  # Sample dog breed data for reference
+├── dbt-sa.json                      # Service account JSON file
+├── requirements.txt                 # Python requirements (legacy)
 ├── CLAUDE.md                        # AI development guidance
-├── README.md                        # Project title
-├── eda_testing.ipynb                # Exploratory data analysis notebook
-├── main.py                          # Cloud Function entry point
-├── pyproject.toml                   # Project configuration and dependencies
-└── uv.lock                          # UV package manager lock file
+├── README.md                        # Project overview incl. dbt documentation
+├── README_dbt.md                    # Deprecated; content merged into README.md
+├── main.py                          # Cloud Function entry point (8 lines)
+├── pyproject.toml                   # Python project configuration and dependencies
+├── uv.lock                          # UV package manager lock file
+├── package-lock.yml                # Package lock file
+├── dbt_project.yml                  # dbt project configuration
+├── profiles.yml                     # dbt BigQuery connection template
+└── packages.yml                     # dbt package dependencies
 ```
 
 ## File Descriptions
 
-### Source Code
+### ETL Pipeline Source Code
 
 #### `src/dog_api_pipeline.py` (111 lines)
 - **Purpose**: Core ETL pipeline implementation
@@ -38,11 +60,111 @@ dogs-as-a-service-pipeline/
 - **Dependencies**: dlt, requests, datetime, typing
 - **Architecture**: Dual-pipeline pattern (GCS + BigQuery)
 
-#### `main.py` (7 lines)  
+#### `main.py` (8 lines)  
 - **Purpose**: Cloud Function HTTP handler
 - **Function**: `dog_pipeline_handler(request)` 
 - **Role**: Wrapper for Cloud Function deployment
 - **Import**: Delegates to `dog_api_pipeline.main()`
+- **Logging**: Includes pipeline start logging
+
+### dbt Analytics Layer
+
+#### `models/sources.yml` (47 lines)
+- **Purpose**: Source data definitions for bronze layer
+- **Configuration**: BigQuery `bronze.dog_api_raw` table definition
+- **Documentation**: Column descriptions and data freshness tests
+- **Schema**: Complete source schema with data types and descriptions
+
+#### `models/staging/stg_dog_breeds.sql` (127 lines)
+- **Purpose**: Core staging model with data cleaning and normalization
+- **Key Features**:
+  - Intelligent range parsing for weights, heights, lifespans
+  - Data type casting and standardization
+  - Quality flags and completeness scoring
+  - Null handling and edge case management
+- **Output**: Clean, typed dataset ready for analytical modeling
+
+#### `models/staging/schema.yml` (127 lines)
+- **Purpose**: Staging layer tests and documentation
+- **Tests**: 15+ schema tests (uniqueness, ranges, accepted values)
+- **Documentation**: Comprehensive column descriptions
+- **Quality**: Data range validation and consistency checks
+
+#### `models/marts/core/dim_breeds.sql` (103 lines)
+- **Purpose**: Master breed dimension with business classifications
+- **Key Features**:
+  - Size categorization and activity level inference
+  - Family suitability scoring based on temperament analysis
+  - Longevity categorization and data completeness metrics
+  - Derived business insights and calculated averages
+- **Materialization**: Table (optimized for analytical queries)
+
+#### `models/marts/core/fct_breed_metrics.sql` (144 lines)
+- **Purpose**: Physical measurements fact table with calculated metrics
+- **Key Features**:
+  - Weight-height ratio calculations and build type classification
+  - Measurement consistency analysis
+  - Performance optimized for analytical queries
+  - Range calculations and statistical metrics
+- **Materialization**: Table (analytical performance)
+
+#### `models/marts/core/dim_temperament.sql` (151 lines)
+- **Purpose**: Behavioral analysis dimension with temperament scoring
+- **Key Features**:
+  - Temperament trait normalization using UNNEST operations
+  - 0-1 normalized scoring across behavioral categories
+  - Training difficulty and family suitability predictions
+  - Primary temperament classification algorithms
+- **Advanced SQL**: Array operations, complex scoring logic
+
+#### `models/marts/core/schema.yml` (186 lines)
+- **Purpose**: Mart layer comprehensive testing and documentation
+- **Tests**: Referential integrity, business logic validation, range checks
+- **Documentation**: Business context and usage examples for each model
+- **Quality**: Cross-model consistency and relationship validation
+
+### dbt Testing Framework
+
+#### `tests/assert_breed_consistency_across_models.sql` (59 lines)
+- **Purpose**: Cross-model referential integrity validation
+- **Logic**: Ensures breeds exist consistently across all mart models
+- **Data Quality**: Prevents orphaned records and maintains consistency
+
+### dbt Configuration Files
+
+#### `dbt_project.yml` (68 lines)
+- **Purpose**: dbt project configuration and materialization strategy
+- **Configuration**:
+  - Staging models as views (development efficiency)
+  - Mart models as tables (analytical performance)
+  - Schema separation (staging, marts_core)
+  - Test failure storage and documentation settings
+
+#### `profiles.yml` (34 lines)
+- **Purpose**: BigQuery connection template
+- **Environments**: Dev and production configurations
+- **Authentication**: Service account and OAuth examples
+- **Usage**: Template for `~/.dbt/profiles.yml`
+
+#### `packages.yml` (4 lines)
+- **Purpose**: dbt package dependencies
+- **Dependencies**: dbt_utils v1.1.1, dbt_expectations v0.10.1
+- **Usage**: `dbt deps` installs testing and utility macros
+
+### Sample Data & Analysis
+
+#### `data/data_sample.csv` (173 lines)
+- **Purpose**: Sample dog breed data for development and testing
+- **Content**: 172 dog breed records with all API fields
+- **Usage**: Development reference and data structure analysis
+
+#### `analyses/breed_insights.sql` (87 lines)
+- **Purpose**: Sample analytical queries demonstrating project capabilities
+- **Content**: 6 different business analysis examples
+- **Business Value**: Family matching, longevity analysis, training insights
+
+#### `README_dbt.md` (deprecated)
+- **Note**: This file is deprecated; refer to `README.md` for dbt docs
 
 ### Configuration Files
 
@@ -141,31 +263,49 @@ dogs-as-a-service-pipeline/
 
 ## Data Flow Through Files
 
-1. **Trigger**: HTTP request to Cloud Function
+### ETL Pipeline Flow
+1. **Trigger**: HTTP request to Cloud Function or `python main.py`
 2. **Entry**: `main.py:dog_pipeline_handler()` 
 3. **Orchestration**: `src/dog_api_pipeline.py:main()`
-4. **Execution**: `load_to_bigquery()` coordinates pipeline
+4. **Execution**: `load_to_bigquery()` coordinates dual pipeline
 5. **Data Flow**: 
-   - `fetch_dog_breeds()` → API extraction
-   - `save_to_cloud_storage()` → Raw storage
-   - DLT pipeline → BigQuery loading
+   - `fetch_dog_breeds()` → API extraction (TheDogAPI)
+   - `save_to_cloud_storage()` → Raw storage (GCS)
+   - DLT pipeline → BigQuery bronze layer loading
+
+### dbt Analytics Flow  
+6. **Source Definition**: `models/sources.yml` → Bronze layer connection
+7. **Staging**: `models/staging/stg_dog_breeds.sql` → Data cleaning & parsing
+8. **Testing**: `models/staging/schema.yml` → Data validation (15+ tests)
+9. **Marts**: Business-ready models creation
+   - `dim_breeds.sql` → Master breed dimension
+   - `fct_breed_metrics.sql` → Physical measurements fact
+   - `dim_temperament.sql` → Behavioral analysis dimension
+10. **Quality Assurance**: Custom tests → Business logic validation
+11. **Documentation**: Auto-generated docs → Model lineage & descriptions
 
 ## Missing Structure Elements
 
-### Testing Infrastructure
-- **No `tests/` directory**: Unit/integration tests not implemented
-- **No test configuration**: No `pytest.ini` or similar
-- **No CI/CD**: No `.github/workflows/` automation
+### ETL Pipeline Testing Infrastructure
+- **No Python `tests/` directory**: Unit/integration tests for pipeline code
+- **No test configuration**: No `pytest.ini` or similar testing config
+- **No mocking**: No API response mocking for reliable testing
 
-### Deployment Scripts
+### CI/CD & Automation
+- **No `.github/workflows/`**: No GitHub Actions for automated testing/deployment
 - **No deployment configs**: No Terraform, Cloud Deployment Manager
 - **No Docker**: No `Dockerfile` for containerization
 - **No environment management**: No `.env.example` template
 
 ### Development Tools
-- **No `Makefile`**: No build automation
-- **No pre-commit hooks**: No code quality automation
-- **No development docs**: No CONTRIBUTING.md or similar
+- **No `Makefile`**: No build automation shortcuts
+- **No pre-commit hooks**: No code quality automation (black, ruff, mypy)
+- **No development docs**: No CONTRIBUTING.md or development setup guide
+
+### Production Infrastructure
+- **No monitoring configs**: No Cloud Monitoring alerting setup
+- **No backup strategies**: No data backup/recovery procedures  
+- **No secrets management**: No Google Secret Manager integration
 
 ## Repository Metadata
 
@@ -211,10 +351,32 @@ deployment/
 └── .env.example                   # Environment template
 ```
 
-## Current Strengths
+## Current Project Strengths
 
-✅ **Clean Module Structure**: Well-organized source code
-✅ **Modern Configuration**: UV + pyproject.toml setup  
-✅ **Comprehensive Documentation**: Detailed docs/ directory
-✅ **Cloud-Native Design**: Ready for GCP deployment
-✅ **Development Ready**: Jupyter notebook for exploration
+### Architecture & Design
+✅ **End-to-End Data Platform**: Complete ETL + Analytics pipeline
+✅ **Layered Architecture**: Clean Bronze → Silver → Gold data flow
+✅ **Modern Technology Stack**: DLT + dbt + BigQuery integration
+✅ **Cloud-Native Design**: Ready for GCP production deployment
+✅ **Dimensional Modeling**: Proper fact/dimension separation
+
+### Code Quality & Testing
+✅ **Comprehensive Testing**: 20+ dbt tests + 3 custom business logic tests
+✅ **Data Quality Framework**: Multi-layer validation and monitoring
+✅ **Clean Module Structure**: Well-organized source code separation
+✅ **Advanced SQL Patterns**: Complex analytics with array operations, scoring algorithms
+✅ **Error Handling**: Robust exception handling throughout pipeline
+
+### Documentation & Development Experience
+✅ **Comprehensive Documentation**: 6 detailed docs covering all aspects
+✅ **Business Context**: Clear analytical value and use case definitions
+✅ **Model Lineage**: dbt-generated documentation with dependency tracking
+✅ **Development Ready**: Jupyter notebooks, sample data, analysis examples
+✅ **Configuration Management**: Environment-specific settings (dev/prod)
+
+### Analytics & Business Value
+✅ **Advanced Analytics**: Temperament scoring, family suitability analysis
+✅ **Derived Insights**: 15+ calculated business metrics
+✅ **Range Intelligence**: Smart parsing of measurement ranges
+✅ **Data Completeness Monitoring**: Quality scoring and availability tracking
+✅ **Business-Ready Models**: Immediate analytical value for stakeholders

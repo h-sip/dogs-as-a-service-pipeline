@@ -1,188 +1,102 @@
-# Architecture Documentation
+# BigQuery Dataset Architecture
 
-## Current Architecture Implementation
+## Overview
 
-**Status**: Functional ETL pipeline implemented using modern Python data engineering tools.
+This document outlines the BigQuery dataset structure for the Dog Breed Explorer project, following a modern data warehouse architecture with clear separation of concerns.
 
-## System Architecture Overview
+## Dataset Structure
+
+### 1. Bronze Layer (Raw Data)
+- **Dataset**: `bronze`
+- **Purpose**: Raw, unprocessed data from external sources
+- **Data Quality**: Minimal validation, preserves original format
+- **Retention**: Long-term storage of raw data
+- **Tables**:
+  - `dog_breeds` - Raw data from TheDogAPI via dlt pipeline
+
+### 2. Staging Layer (Cleaned Data)
+- **Dataset**: `dog_explorer_staging` (dev: `dog_explorer_dev_staging`)
+- **Purpose**: Cleaned, validated, and standardized data
+- **Data Quality**: Type casting, null handling, data validation
+- **Retention**: Medium-term storage
+- **Tables**:
+  - `stg_dog_breeds` - Cleaned and parsed dog breed data
+
+### 3. Marts Layer (Business-Ready Data)
+- **Dataset**: `dog_explorer_marts` (dev: `dog_explorer_dev_marts`)
+- **Purpose**: Business-ready dimensional models for analytics
+- **Data Quality**: Business logic applied, optimized for querying
+- **Retention**: Long-term storage of business data
+- **Sub-datasets**:
+  - `dog_explorer_marts_core` (dev: `dog_explorer_dev_marts_core`)
+    - `dim_breeds` - Dimension table for breed information
+    - `dim_temperament` - Dimension table for temperament traits
+    - `fct_breed_metrics` - Fact table for breed measurements and metrics
+
+## Data Flow
 
 ```
-TheDogAPI (REST) → Data Pipeline (Cloud Function) → Dual Storage (GCS + BigQuery)
+External API (TheDogAPI)
+        ↓
+    dlt Pipeline
+        ↓
+    bronze.dog_breeds (Raw)
+        ↓
+    stg_dog_breeds (Cleaned)
+        ↓
+    dim_breeds + dim_temperament + fct_breed_metrics (Business-ready)
 ```
 
-### High-Level Architecture
+## Environment Separation
 
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
-│   TheDogAPI     │    │   Cloud Function │    │    Storage Layer    │
-│   (External)    │───▶│   ETL Pipeline   │───▶│  ┌─────────────────┐│
-│                 │    │                  │    │  │   BigQuery      ││
-│ • REST API      │    │ • Data Extract   │    │  │   (bronze)      ││
-│ • 172 breeds    │    │ • Transform      │    │  └─────────────────┘│
-│ • JSON format   │    │ • Dual Load      │    │  ┌─────────────────┐│
-└─────────────────┘    └──────────────────┘    │  │ Cloud Storage   ││
-                                                │  │ (raw/partitioned│
-                                                │  └─────────────────┘│
-                                                └─────────────────────┘
-```
+### Development Environment
+- **Base Dataset**: `dog_explorer_dev`
+- **Staging**: `dog_explorer_dev_staging`
+- **Marts**: `dog_explorer_dev_marts`
+- **Core Marts**: `dog_explorer_dev_marts_core`
 
-## Core Components
+### Production Environment
+- **Base Dataset**: `dog_explorer`
+- **Staging**: `dog_explorer_staging`
+- **Marts**: `dog_explorer_marts`
+- **Core Marts**: `dog_explorer_marts_core`
 
-### 1. Data Extraction Layer
-**Location**: `src/dog_api_pipeline.py:fetch_dog_breeds()`
+## Naming Conventions
 
-- **Source**: TheDogAPI (https://api.thedogapi.com/v1/breeds)
-- **Method**: HTTP GET request using `requests` library
-- **Format**: JSON array of dog breed objects
-- **Volume**: 172 dog breed records per extraction
-- **Error Handling**: Request exceptions with proper logging
+### Datasets
+- `bronze` - Raw data layer
+- `{project}_{env}_staging` - Staging layer
+- `{project}_{env}_marts` - Business layer
+- `{project}_{env}_marts_core` - Core business layer
 
-### 2. Data Transformation Layer
-**Location**: `src/dog_api_pipeline.py:fetch_dog_breeds()`
+### Tables
+- `stg_*` - Staging tables (cleaned raw data)
+- `dim_*` - Dimension tables (descriptive attributes)
+- `fct_*` - Fact tables (measurable events/metrics)
 
-- **Metadata Enrichment**: Adds `extracted_at` timestamp
-- **Date Partitioning**: Adds `extraction_date` for data partitioning
-- **Schema Consistency**: Preserves original API structure
-- **Data Types**: Maintains string/integer types from source
+## Benefits of This Structure
 
-### 3. Storage Architecture
+1. **Clear Separation**: Each layer has a distinct purpose
+2. **Data Lineage**: Easy to trace data from source to consumption
+3. **Environment Isolation**: Development and production are completely separate
+4. **Scalability**: Easy to add new data sources and business domains
+5. **Performance**: Optimized materializations for each use case
+6. **Maintainability**: Clear ownership and responsibility for each layer
 
-#### Raw Data Storage (Data Lake)
-**Location**: `src/dog_api_pipeline.py:save_to_cloud_storage()`
+## Migration from Current State
 
-- **Destination**: Google Cloud Storage
-- **Format**: JSON files (raw API responses)
-- **Partitioning**: Date-based (YYYY_MM_DD)
-- **Purpose**: Historical data preservation, data lineage
+The current `dbt_hsip_staging` dataset was created due to incorrect schema configuration. After applying the updated `dbt_project.yml`, the correct structure will be created. You may want to:
 
-#### Processed Data Storage (Data Warehouse)
-**Location**: `src/dog_api_pipeline.py:load_to_bigquery()`
+1. **Backup existing data** if needed
+2. **Run dbt run** to create the new structure
+3. **Verify data quality** in the new datasets
+4. **Drop old datasets** once confirmed working
 
-- **Destination**: Google BigQuery
-- **Dataset**: `bronze` (raw/landing layer)
-- **Table**: `dog_breeds` (auto-created by DLT)
-- **Schema**: Dynamic schema inference by DLT
-- **Write Mode**: Replace (full refresh per run)
+## Best Practices
 
-### 4. Pipeline Orchestration
-**Framework**: DLT (Data Load Tool)
-
-#### DLT Configuration
-- **Pipeline Name**: `dog_breeds_pipeline`
-- **Resource Name**: `dog_breeds`
-- **Write Disposition**: `replace` (full refresh)
-- **Column Definitions**: Timestamp column explicitly typed
-
-#### Dual Pipeline Pattern
-1. **Filesystem Pipeline**: Raw data to Cloud Storage
-2. **BigQuery Pipeline**: Processed data to warehouse
-
-### 5. Cloud Function Integration
-**Entry Points**: 
-- `main.py:dog_pipeline_handler()` - HTTP handler
-- `src/dog_api_pipeline.py:main()` - Direct execution
-
-#### Function Characteristics
-- **Runtime**: Python 3.11+
-- **Trigger**: HTTP request (Cloud Scheduler compatible)
-- **Response**: JSON status with load information
-- **Dependencies**: Managed via `pyproject.toml`
-
-## Data Flow Architecture
-
-### 1. Extraction Phase
-```python
-# HTTP Request → JSON Response → Python Dict List
-api_url = "https://api.thedogapi.com/v1/breeds"
-response = requests.get(api_url)
-breeds_data = response.json()  # List[Dict[str, Any]]
-```
-
-### 2. Transformation Phase  
-```python
-# Add Metadata → Enhanced Records
-for breed in breeds_data:
-    breed["extracted_at"] = datetime.utcnow().isoformat()
-    breed["extraction_date"] = datetime.utcnow().date().isoformat()
-```
-
-### 3. Dual Load Phase
-```python
-# Parallel loading to two destinations
-save_to_cloud_storage(data, date_partition)  # Raw data
-pipeline.run(fetch_dog_breeds())             # Processed data
-```
-
-## Technology Stack Details
-
-### Core Dependencies
-```toml
-[project.dependencies]
-dlt[bigquery,gcs] = ">=1.15.0"     # Pipeline orchestration
-functions-framework = ">=3.9.2"    # Cloud Function runtime
-requests = "*"                      # HTTP client (implicit)
-```
-
-### DLT Architecture Benefits
-- **Schema Evolution**: Automatic schema detection and evolution
-- **Data Lineage**: Built-in metadata tracking
-- **Error Handling**: Robust error handling and retries
-- **Incremental Loading**: Support for incremental patterns (not used currently)
-- **Multiple Destinations**: Native support for multiple storage targets
-
-## Deployment Architecture
-
-### Current Deployment Pattern
-- **Local Development**: Direct Python execution via `python main.py`
-- **Cloud Deployment**: Google Cloud Function (HTTP triggered)
-- **Scheduling**: Cloud Scheduler → HTTP trigger → Cloud Function
-
-### Infrastructure Requirements
-- **Google Cloud Project** with enabled APIs:
-  - Cloud Functions API
-  - BigQuery API  
-  - Cloud Storage API
-- **Service Account** with appropriate permissions:
-  - BigQuery Data Editor
-  - Storage Admin
-- **Cloud Storage Bucket** for raw data storage
-
-## Error Handling & Monitoring
-
-### Current Error Handling
-- **API Failures**: Request exceptions caught and logged
-- **Pipeline Failures**: DLT handles load errors with detailed logging
-- **Function Failures**: JSON error responses returned to caller
-
-### Logging Strategy
-- **Info Level**: Successful operations, record counts
-- **Error Level**: API failures, pipeline exceptions
-- **Return Values**: Structured JSON responses with status
-
-## Data Quality & Governance
-
-### Current Implementation
-- **Data Freshness**: Timestamps on every record
-- **Data Lineage**: DLT metadata tracking
-- **Schema Consistency**: DLT schema validation
-- **Error Tracking**: Exception logging and status returns
-
-### Missing Elements (Improvement Areas)
-- **Data Validation Rules**: No explicit data quality checks
-- **Deduplication Logic**: No handling of duplicate breeds
-- **Monitoring/Alerting**: No automated failure notifications
-- **Data Catalog**: No metadata catalog integration
-
-## Performance Considerations
-
-### Current Performance Characteristics
-- **Extraction**: Single API call (fast)
-- **Volume**: 172 records (~small dataset)
-- **Network**: Minimal latency for API calls
-- **Storage**: Dual writes (parallel operations)
-
-### Scalability Considerations
-- **API Limits**: TheDogAPI rate limiting (not currently handled)
-- **BigQuery Limits**: Well within quotas for current volume
-- **Cloud Function Limits**: 540 seconds timeout (adequate)
-- **Memory Usage**: Minimal for current data volume
+1. **Never query bronze directly** for business logic
+2. **Use staging for data quality checks** and validation
+3. **Build business logic in marts** layer only
+4. **Test each layer independently**
+5. **Document schema changes** and data lineage
+6. **Monitor data freshness** and quality metrics
