@@ -10,5 +10,6 @@ dependencies = [
     "gcloud>=0.18.3",
     "google-cloud-bigquery-storage>=2.32.0",
     "ipykernel>=6.30.1",
+    "openai>=1.102.0",
     "streamlit>=1.49.0",
 ]
