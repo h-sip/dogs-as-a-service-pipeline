@@ -31,7 +31,8 @@ dogs-as-a-service-pipeline/
 │   └── assert_breed_consistency_across_models.sql
 ├── analyses/                        # dbt analysis files
 │   └── breed_insights.sql           # Sample analytical queries
-├── macros/                          # dbt macros (empty - available for future)
+├── macros/                          # dbt macros
+│   └── generate_schema_name.sql     # Env-aware dataset resolution (models vs tests)
 ├── dbt_packages/                    # Installed dbt packages
 ├── dbt_internal_packages/           # dbt internal packages
 ├── target/                          # dbt compile target directory
@@ -137,13 +138,13 @@ dogs-as-a-service-pipeline/
 
 ### dbt Configuration Files
 
-#### `dbt_project.yml` (68 lines)
+#### `dbt_project.yml` (65 lines)
 - **Purpose**: dbt project configuration and materialization strategy
 - **Configuration**:
-  - Staging models as views (development efficiency)
-  - Mart models as tables (analytical performance)
-  - Schema separation (staging, marts_core)
-  - Test failure storage and documentation settings
+  - Staging models as views; marts as tables
+  - Single dataset per env (`target.schema`) via `generate_schema_name`
+  - Tests routed to `<target.schema>_tests`
+  - Stable `bronze` source dataset
 
 #### `profiles.yml` (34 lines)
 - **Purpose**: BigQuery connection template
