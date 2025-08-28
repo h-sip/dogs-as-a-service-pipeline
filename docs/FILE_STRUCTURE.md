@@ -4,10 +4,14 @@
 
 ```
 dogs-as-a-service-pipeline/
+├── .github/                         # GitHub configuration
+│   └── workflows/                   # GitHub Actions CI/CD
+│       ├── pr-tests.yml             # PR testing workflow
+│       └── deploy-prod.yml          # Production deployment workflow
 ├── docs/                            # Project documentation
-│   ├── ARCHITECTURE.md              # System architecture and components
+│   ├── ARCHITECTURE.md              # System architecture and CI/CD
 │   ├── API_REFERENCE.md             # API schemas and data models
-│   ├── DEPLOYMENT.md                # Deployment guides and instructions
+│   ├── DEPLOYMENT.md                # Deployment guides and GitHub Actions
 │   ├── FILE_STRUCTURE.md            # This file - directory structure
 │   ├── PROJECT_OVERVIEW.md          # Project summary and roadmap
 │   └── README.md                    # Documentation overview
@@ -290,15 +294,78 @@ dogs-as-a-service-pipeline/
 10. **Quality Assurance**: Custom tests → Business logic validation
 11. **Documentation**: Auto-generated docs → Model lineage & descriptions
 
-## Missing Structure Elements
+## Current CI/CD Implementation (✅ Complete)
+
+### GitHub Actions Workflows
+
+#### PR Testing Workflow
+- **File**: `.github/workflows/pr-tests.yml`
+- **Purpose**: Automated validation of changes before merge
+- **Coverage**: Full dbt test suite execution
+- **Environment**: Isolated development dataset
+- **Security**: Service account authentication
+
+#### Production Deployment Workflow
+- **File**: `.github/workflows/deploy-prod.yml` 
+- **Purpose**: Automated production deployment
+- **Trigger**: Merge to main branch
+- **Coverage**: Production dbt run and test execution
+- **Environment**: Production dataset with separate authentication
+
+### Authentication Architecture
+```
+GitHub Repository Secrets (GCP_SA_KEY)
+    ↓
+google-github-actions/auth@v2
+    ↓
+Dynamic dbt profiles.yml creation
+    ↓
+BigQuery connection (keyfile method)
+    ↓
+dbt execution (dev/prod targets)
+```
+
+### Development Workflow Integration
+1. **Feature Development**: Local development (optional)
+2. **Pull Request**: Automated testing via GitHub Actions
+3. **Code Review**: Manual review + automated test results
+4. **Merge to Main**: Automatic production deployment
+5. **Monitoring**: GitHub Actions logs and BigQuery validation
+
+## Remaining Missing Elements
 
 ### ETL Pipeline Testing Infrastructure
 - **No Python `tests/` directory**: Unit/integration tests for pipeline code
 - **No test configuration**: No `pytest.ini` or similar testing config
 - **No mocking**: No API response mocking for reliable testing
 
-### CI/CD & Automation
-- **No `.github/workflows/`**: No GitHub Actions for automated testing/deployment
+### GitHub Actions CI/CD (✅ Implemented)
+
+#### `.github/workflows/pr-tests.yml` (59 lines)
+- **Purpose**: Automated testing on pull requests
+- **Trigger**: Pull requests to main/dev branches
+- **Environment**: testing (GitHub environment)
+- **Target**: dev dataset (`dog_explorer_dev`)
+- **Steps**:
+  - Python 3.11 + UV setup
+  - Google Cloud authentication via service account
+  - Dynamic dbt profiles.yml creation
+  - dbt deps, compile, run, test execution
+- **Authentication**: Uses `GCP_SA_KEY` GitHub secret
+
+#### `.github/workflows/deploy-prod.yml` (56 lines)
+- **Purpose**: Production deployment on main branch merge
+- **Trigger**: Push to main branch
+- **Environment**: production (GitHub environment)
+- **Target**: prod dataset (`dog_explorer`)
+- **Steps**:
+  - Python 3.11 + UV setup
+  - Google Cloud authentication
+  - Production dbt profiles.yml creation
+  - dbt deps, compile, run, test for production
+- **Security**: Separate production environment with isolated secrets
+
+### Remaining Infrastructure Gaps
 - **No deployment configs**: No Terraform, Cloud Deployment Manager
 - **No Docker**: No `Dockerfile` for containerization
 - **No environment management**: No `.env.example` template
