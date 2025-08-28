@@ -1,6 +1,6 @@
 # 🐕 Dogs-as-a-Service Data Platform
 
-## Overview
+## Overview 
 
 A comprehensive **end-to-end data engineering platform** that demonstrates modern data architecture patterns through dog breed analytics. This project combines a robust ETL pipeline with advanced analytics capabilities, showcasing both technical depth and practical business value.
 
