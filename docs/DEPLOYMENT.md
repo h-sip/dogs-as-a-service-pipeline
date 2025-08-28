@@ -74,7 +74,7 @@ streamlit run /Users/hendrik/Documents/Repositories2/dogs-as-a-service-pipeline/
 Update dataset in `streamlit_app.py` if needed:
 
 ```python
-PROJECT_DATASET = "<project>.<dataset_prefix>.dog_explorer_dev_marts_core"
+PROJECT_DATASET = "dog-breed-explorer-470208.dog_explorer_dev"
 ```
 
 ### 3. Configure Google Cloud Credentials
@@ -569,33 +569,33 @@ dbt deps
 
 ### BigQuery Dataset Configuration
 
-#### 1. Create Analytics Datasets
+#### 1. Create Analytics Datasets (current approach)
 
 ```bash
-# Development datasets
+## Single dataset per environment for models
 bq mk --dataset \
-    --description "Development staging layer for dog breed analytics" \
-    YOUR_PROJECT_ID:dog_explorer_dev_staging
+    --description "Development analytics dataset (models)" \
+    YOUR_PROJECT_ID:dog_explorer_dev
 
 bq mk --dataset \
-    --description "Development marts layer for dog breed analytics" \
-    YOUR_PROJECT_ID:dog_explorer_dev_marts_core
+    --description "Production analytics dataset (models)" \
+    YOUR_PROJECT_ID:dog_explorer
 
-# Production datasets  
+## Separate datasets for tests
 bq mk --dataset \
-    --description "Production staging layer for dog breed analytics" \
-    YOUR_PROJECT_ID:dog_explorer_staging
+    --description "Development dbt tests dataset" \
+    YOUR_PROJECT_ID:dog_explorer_dev_tests
 
 bq mk --dataset \
-    --description "Production marts layer for dog breed analytics" \
-    YOUR_PROJECT_ID:dog_explorer_marts_core
+    --description "Production dbt tests dataset" \
+    YOUR_PROJECT_ID:dog_explorer_tests
 ```
 
 #### 2. Grant Service Account Permissions
 
 ```bash
 # Grant permissions to analytics datasets
-for dataset in "dog_explorer_dev_staging" "dog_explorer_dev_marts_core" "dog_explorer_staging" "dog_explorer_marts_core"; do
+for dataset in "dog_explorer_dev" "dog_explorer" "dog_explorer_dev_tests" "dog_explorer_tests"; do
     bq add-iam-policy-binding \
         --member=serviceAccount:dogs-pipeline-service@YOUR_PROJECT_ID.iam.gserviceaccount.com \
         --role=roles/bigquery.dataEditor \
@@ -608,17 +608,16 @@ done
 #### 1. Local Development
 
 ```bash
-# Test connection
-dbt debug
+DBT_PROFILES_DIR=/path/to/.dbt
 
-# Run staging models only
-dbt run --select staging
+# Test connection (dev)
+uv run dbt debug --target dev
 
-# Run all models
-dbt run
+# Build dev (models + tests)
+uv run dbt build --target dev
 
-# Run tests
-dbt test
+# Build prod (models + tests)
+uv run dbt build --target prod
 
 # Generate and serve documentation
 dbt docs generate
@@ -670,24 +669,23 @@ echo "Starting dbt production deployment..."
 export DBT_PROFILES_DIR=~/.dbt
 export DBT_TARGET=prod
 
-# Validate connection
 echo "Validating BigQuery connection..."
-dbt debug --target prod
+uv run dbt debug --target prod
 
 # Install dependencies
 echo "Installing dbt packages..."
 dbt deps
 
 # Run full pipeline with testing
-echo "Running dbt models..."
-dbt run --target prod
+echo "Running dbt models & tests..."
+uv run dbt build --target prod
 
 echo "Running dbt tests..."
 dbt test --target prod
 
 # Generate documentation
 echo "Generating documentation..."
-dbt docs generate --target prod
+uv run dbt docs generate --target prod
 
 # Upload docs to Cloud Storage (optional)
 echo "Uploading documentation..."

@@ -40,17 +40,13 @@ clean-targets:         # directories to be removed by `dbt clean`
 
 models:
   dog_breed_explorer:
-    # Config indicated by + and applies to all files under models/...
     +materialized: view
     staging:
       +materialized: view
-      +schema: "{{ target.dataset }}_staging"
     marts:
       +materialized: table
-      +schema: "{{ target.dataset }}_marts"
       core:
         +materialized: table
-        +schema: "{{ target.dataset }}_marts_core"
 
 # Test configurations
 tests:
@@ -62,9 +58,8 @@ docs-paths: ["docs"]
 # Variables for environment-specific configurations
 vars:
   # Raw data source
+  # Raw dataset is stable across envs; models are isolated by target dataset
   source_dataset: "bronze"
   source_table: "dog_api_raw"
-  
-  # Development vs Production
-  dev_dataset_suffix: "_dev"
-  prod_dataset_suffix: ""
+  # Ensure project id can be overridden but default to the active target project
+  gcp_project_id: "{{ target.project }}"

@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: bronze
     description: "Raw data layer containing dog breed data from TheDogAPI"
-    database: "{{ var('gcp_project_id', target.project) }}"
+    database: "{{ target.project }}"
     schema: "{{ var('source_dataset') }}"
     tables:
       - name: dog_breeds

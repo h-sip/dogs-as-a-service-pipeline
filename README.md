@@ -33,49 +33,263 @@ A comprehensive **end-to-end data engineering platform** that demonstrates moder
 
 ## 🚀 Quick Start
 
+### Manual Setup
+
+For detailed step-by-step instructions, see the [Complete Setup Guide](docs/SETUP_GUIDE.md).
+
 ### Prerequisites
-- Python 3.11+
-- Google Cloud Platform account
-- dbt-core with BigQuery adapter
 
-### 1. ETL Pipeline Setup
+- **Python 3.11+** (specified in pyproject.toml)
+- **Google Cloud Platform account** with billing enabled
+- **UV package manager** (recommended) or pip
+- **Google Cloud SDK** (`gcloud` CLI)
+
+### 1. Local Development Setup
+
+#### 1.1 Clone and Install Dependencies
+
 ```bash
-# Clone and install
-git clone <repository>
+# Clone the repository
+git clone <repository-url>
 cd dogs-as-a-service-pipeline
-uv sync  # or pip install -r requirements.txt
 
-# Test locally
-python main.py
+# Install UV (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies using UV (recommended)
+uv sync
+
+# Alternative: Install using pip
+pip install -r requirements.txt
+
+# Verify Python version
+python --version  # Should be 3.11+
 ```
 
-### 2. dbt Analytics Setup
+#### 1.2 Google Cloud Authentication Setup
+
 ```bash
-# Install dbt dependencies
-dbt deps
+# Authenticate with Google Cloud
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
 
-# Configure BigQuery connection (see profiles.yml template)
-cp profiles.yml ~/.dbt/profiles.yml
-# Edit with your BigQuery project details
+# Create service account for local development
+gcloud iam service-accounts create dogs-pipeline-local \
+    --display-name="Dogs Pipeline Local Development"
 
-# Run analytics pipeline
-dbt run
-dbt test
+# Grant necessary permissions
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+    --member="serviceAccount:dogs-pipeline-local@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+    --role="roles/bigquery.dataEditor"
+
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+    --member="serviceAccount:dogs-pipeline-local@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+    --role="roles/storage.admin"
+
+# Download service account key
+gcloud iam service-accounts keys create dbt-sa.json \
+    --iam-account=dogs-pipeline-local@YOUR_PROJECT_ID.iam.gserviceaccount.com
+
+# Set environment variable for local development
+export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/dbt-sa.json"
 ```
 
-### dbt Project Details
+#### 1.3 BigQuery Dataset Setup
 
-#### Data Models
-- `stg_dog_breeds`: Cleaned and normalized raw data with parsed measurement ranges
-- `dim_breeds`: Master dimension with breed characteristics and derived insights
-- `fct_breed_metrics`: Quantitative metrics and physical measurements analysis
-- `dim_temperament`: Behavioral analysis with temperament scoring and categorization
+```bash
+# Create development datasets
+bq mk --dataset \
+    --description "Development analytics dataset" \
+    YOUR_PROJECT_ID:dog_explorer_dev
 
-#### Testing Strategy
+bq mk --dataset \
+    --description "Development dbt tests dataset" \
+    YOUR_PROJECT_ID:dog_explorer_dev_tests
+
+# Create production datasets
+bq mk --dataset \
+    --description "Production analytics dataset" \
+    YOUR_PROJECT_ID:dog_explorer
+
+bq mk --dataset \
+    --description "Production dbt tests dataset" \
+    YOUR_PROJECT_ID:dog_explorer_tests
+```
+
+#### 1.4 dbt Configuration
+
+1. **Copy and configure profiles.yml template:**
+
+```bash
+# Copy the template
+cp .dbt/profiles.yml ~/.dbt/profiles.yml
+
+# Edit with your project details
+nano ~/.dbt/profiles.yml
+```
+
+2. **Update profiles.yml with your project details:**
+
+```yaml
+dog_breed_explorer:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: YOUR_PROJECT_ID
+      dataset: dog_explorer_dev
+      threads: 4
+      timeout_seconds: 300
+      location: US  # or your preferred region
+      priority: interactive
+      keyfile: /path/to/your/dbt-sa.json
+      
+    prod:
+      type: bigquery
+      method: service-account
+      project: YOUR_PROJECT_ID
+      dataset: dog_explorer
+      threads: 8
+      timeout_seconds: 300
+      location: US  # or your preferred region
+      priority: interactive
+      keyfile: /path/to/your/dbt-sa.json
+```
+
+3. **Install dbt dependencies:**
+
+```bash
+dbt deps
+```
+
+#### 1.5 Streamlit Configuration
+
+1. **Create Streamlit secrets template:**
+
+```bash
+# Copy the template
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+
+# Edit with your service account details
+nano .streamlit/secrets.toml
+```
+
+2. **Update secrets.toml with your project details:**
+
+```toml
+# Optional: OpenAI API key for enhanced features
+OPENAI_API_KEY = "your-openai-api-key-here"
+
+[gcp_service_account]
+type = "service_account"
+project_id = "YOUR_PROJECT_ID"
+private_key_id = "your-private-key-id"
+private_key = "-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n"
+client_email = "your-service-account@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+client_id = "your-client-id"
+auth_uri = "https://accounts.google.com/o/oauth2/auth"
+token_uri = "https://oauth2.googleapis.com/token"
+auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
+client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/your-service-account%40YOUR_PROJECT_ID.iam.gserviceaccount.com"
+```
+
+#### 1.6 Test Local Setup
+
+```bash
+# Test ETL pipeline
+python main.py
+
+# Test dbt models
+dbt run --target dev
+dbt test --target dev
+
+# Test Streamlit app
+streamlit run streamlit_app.py
+```
+
+### 2. Production Deployment
+
+#### 2.1 Cloud Function Deployment
+
+```bash
+# Deploy ETL pipeline as Cloud Function
+gcloud functions deploy dog-pipeline-handler \
+    --runtime python311 \
+    --source . \
+    --entry-point dog_pipeline_handler \
+    --trigger-http \
+    --allow-unauthenticated \
+    --memory 512MB \
+    --timeout 540s
+
+# Set up Cloud Scheduler for automated execution
+gcloud scheduler jobs create http dog-pipeline-scheduler \
+    --schedule="0 */6 * * *" \
+    --uri="$(gcloud functions describe dog-pipeline-handler --format='value(httpsTrigger.url)')" \
+    --http-method=POST
+```
+
+#### 2.2 Production dbt Deployment
+
+```bash
+# Run production models
+dbt run --target prod
+
+# Run production tests
+dbt test --target prod
+
+# Generate documentation
+dbt docs generate
+```
+
+#### 2.3 Streamlit Cloud Deployment
+
+1. **Connect your repository to Streamlit Cloud**
+2. **Set up secrets in Streamlit Cloud dashboard:**
+   - Go to your app settings
+   - Add the same secrets as in your local `.streamlit/secrets.toml`
+3. **Deploy the app**
+
+### 3. Secrets Management
+
+#### 3.1 Service Account Files
+
+- **dbt-sa.json**: Service account key for dbt operations
+- **Streamlit secrets.toml**: Service account credentials for Streamlit app
+- **Never commit these files to version control**
+
+#### 3.2 Environment Variables
+
+```bash
+# For local development
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/dbt-sa.json"
+
+# For production (Cloud Functions)
+# Set via Cloud Console or gcloud CLI
+```
+
+#### 3.3 Security Best Practices
+
+- Use separate service accounts for different environments
+- Grant minimal required permissions
+- Rotate service account keys regularly
+- Use IAM conditions for additional security
+- Monitor service account usage
+
+### 4. dbt Project Details
+
+#### 4.1 Data Models
+- **`stg_dog_breeds`**: Cleaned and normalized raw data with parsed measurement ranges
+- **`dim_breeds`**: Master dimension with breed characteristics and derived insights
+- **`fct_breed_metrics`**: Quantitative metrics and physical measurements analysis
+- **`dim_temperament`**: Behavioral analysis with temperament scoring and categorization
+
+#### 4.2 Testing Strategy
 - Schema tests (uniqueness, referential integrity, ranges, accepted values)
-- Custom tests: weight-height ratio validation, temperament score validation, cross-model consistency
+- Custom tests: e.g. cross-model consistency
 
-#### Common dbt Commands
+#### 4.3 Common dbt Commands
 ```bash
 # Run everything
 dbt run && dbt test
@@ -93,7 +307,7 @@ dbt test --select fct_breed_metrics
 dbt docs generate && dbt docs serve
 ```
 
-### 3. Explore the Data
+### 5. Explore the Data
 ```sql
 -- Find family-friendly small breeds
 SELECT 
@@ -190,6 +404,7 @@ Business impact: adoption teams can prioritize small/medium, high‑affection/in
 ## 📚 Documentation
 
 ### Complete Documentation Suite
+- **[Setup Guide](docs/SETUP_GUIDE.md)**: Complete setup and deployment instructions
 - **[Project Overview](docs/PROJECT_OVERVIEW.md)**: Business context and roadmap
 - **[Architecture](docs/ARCHITECTURE.md)**: Technical architecture and design
 - **[API Reference](docs/API_REFERENCE.md)**: Complete data model schemas
@@ -232,34 +447,6 @@ dbt test --target prod
 - Consider clustering on `breed_id` for large datasets
 - Partition historical datasets when applicable
 
-## 🎯 Use Cases
-
-### Pet Industry Applications
-- **Adoption Centers**: Match breeds to family requirements
-- **Training Services**: Tailor approaches by temperament
-- **Veterinary Practices**: Breed-specific health insights
-- **Insurance**: Risk assessment and pricing models
-
-### Technical Demonstrations
-- **Data Engineering Interviews**: Complete modern data platform
-- **Architecture Reviews**: Production-ready design patterns
-- **Analytics Showcases**: Advanced SQL and business logic
-- **ETL Best Practices**: Error handling, testing, monitoring
-
-## 🏆 Project Strengths
-
-### Technical Excellence
-✅ **Modern Architecture**: Bronze/Silver/Gold medallion pattern  
-✅ **Advanced Analytics**: Complex SQL with array operations, scoring algorithms  
-✅ **Comprehensive Testing**: Multi-layer validation and quality assurance  
-✅ **Production-Ready**: Error handling, monitoring, documentation  
-
-### Business Value
-✅ **Clear ROI**: Immediate analytical value for pet industry  
-✅ **Scalable Design**: Architecture supports growth and enhancement  
-✅ **Real-World Application**: Genuine business problem solving  
-✅ **Educational Value**: Demonstrates best practices and patterns  
-
 ## 📊 Data Sample
 
 The pipeline processes 172 dog breeds with rich metadata:
@@ -274,21 +461,3 @@ The pipeline processes 172 dog breeds with rich metadata:
   "primary_temperament_category": "Social/Friendly"
 }
 ```
-
-## 🤝 Contributing
-
-This project demonstrates production-ready data engineering practices. Areas for expansion:
-
-- **Additional Data Sources**: Cat breeds, health data, training records
-- **ML Integration**: Breed recommendation engine
-- **Real-time Pipeline**: Streaming data processing
-- **Advanced Analytics**: Predictive modeling, anomaly detection
-
-## 📄 License
-
-This project is designed for educational and interview purposes, demonstrating modern data engineering capabilities.
-
----
-
-**Built with ❤️ showcasing modern data engineering practices**  
-*Complete ETL + Analytics platform with real business value*

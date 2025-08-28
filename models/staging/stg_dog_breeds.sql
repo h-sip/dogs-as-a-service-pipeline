@@ -1,6 +1,5 @@
 {{ config(
-    materialized='view',
-    schema='dog_explorer_dev_staging'
+    materialized='view'
 ) }}
 
 with source_data as (

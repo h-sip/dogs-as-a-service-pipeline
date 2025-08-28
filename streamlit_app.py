@@ -15,7 +15,7 @@ credentials = service_account.Credentials.from_service_account_info(
 client = bigquery.Client(credentials=credentials)
 
 # Dataset/table constants
-PROJECT_DATASET = "dog-breed-explorer-470208.dbt_hsip_dog_explorer_dev_marts_core"
+PROJECT_DATASET = "dog-breed-explorer-470208.dog_explorer"
 TABLE_FCT = f"`{PROJECT_DATASET}.fct_breed_metrics`"
 TABLE_DIM_BREEDS = f"`{PROJECT_DATASET}.dim_breeds`"
 TABLE_DIM_TEMPERAMENT = f"`{PROJECT_DATASET}.dim_temperament`"

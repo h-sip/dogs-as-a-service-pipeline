@@ -15,7 +15,7 @@ This document outlines the BigQuery dataset structure for the Dog Breed Explorer
   - `dog_breeds` - Raw data from TheDogAPI via dlt pipeline
 
 ### 2. Staging Layer (Cleaned Data)
-- **Dataset**: `dog_explorer_staging` (dev: `dog_explorer_dev_staging`)
+- **Dataset**: `dog_explorer` (dev: `dog_explorer_dev`) — single dataset per env
 - **Purpose**: Cleaned, validated, and standardized data
 - **Data Quality**: Type casting, null handling, data validation
 - **Retention**: Medium-term storage
@@ -23,7 +23,7 @@ This document outlines the BigQuery dataset structure for the Dog Breed Explorer
   - `stg_dog_breeds` - Cleaned and parsed dog breed data
 
 ### 3. Marts Layer (Business-Ready Data)
-- **Dataset**: `dog_explorer_marts` (dev: `dog_explorer_dev_marts`)
+- **Dataset**: `dog_explorer` (dev: `dog_explorer_dev`) — single dataset per env
 - **Purpose**: Business-ready dimensional models for analytics
 - **Data Quality**: Business logic applied, optimized for querying
 - **Retention**: Long-term storage of business data
@@ -55,24 +55,19 @@ External API (TheDogAPI)
 ## Environment Separation
 
 ### Development Environment
-- **Base Dataset**: `dog_explorer_dev`
-- **Staging**: `dog_explorer_dev_staging`
-- **Marts**: `dog_explorer_dev_marts`
-- **Core Marts**: `dog_explorer_dev_marts_core`
+- **Models Dataset**: `dog_explorer_dev`
+- **Tests Dataset**: `dog_explorer_dev_tests`
 
 ### Production Environment
-- **Base Dataset**: `dog_explorer`
-- **Staging**: `dog_explorer_staging`
-- **Marts**: `dog_explorer_marts`
-- **Core Marts**: `dog_explorer_marts_core`
+- **Models Dataset**: `dog_explorer`
+- **Tests Dataset**: `dog_explorer_tests`
 
 ## Naming Conventions
 
 ### Datasets
 - `bronze` - Raw data layer
-- `{project}_{env}_staging` - Staging layer
-- `{project}_{env}_marts` - Business layer
-- `{project}_{env}_marts_core` - Core business layer
+- `dog_explorer_{env}` - Analytics models (single dataset per env)
+- `dog_explorer_{env}_tests` - dbt test artifacts
 
 ### Tables
 - `stg_*` - Staging tables (cleaned raw data)
