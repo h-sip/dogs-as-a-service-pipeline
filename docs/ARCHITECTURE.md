@@ -45,6 +45,11 @@ External API (TheDogAPI)
     stg_dog_breeds (Cleaned)
         ↓
     dim_breeds + dim_temperament + fct_breed_metrics (Business-ready)
+        ↓
+    Streamlit Frontend (metric-only)
+        ├── frontend/filters.py → sidebar + SQL clauses
+        ├── frontend/overview.py → charts
+        └── frontend/finder.py → placeholder
 ```
 
 ## Environment Separation
@@ -82,6 +87,7 @@ External API (TheDogAPI)
 4. **Scalability**: Easy to add new data sources and business domains
 5. **Performance**: Optimized materializations for each use case
 6. **Maintainability**: Clear ownership and responsibility for each layer
+7. **Modular UI**: Frontend split into pages and shared filters for reuse
 
 ## Migration from Current State
 
@@ -100,3 +106,4 @@ The current `dbt_hsip_staging` dataset was created due to incorrect schema confi
 4. **Test each layer independently**
 5. **Document schema changes** and data lineage
 6. **Monitor data freshness** and quality metrics
+7. **Prefer metric units** in UI for consistency (kg, cm)

@@ -176,3 +176,40 @@ This is a **production-ready data engineering project** featuring a functional E
 - 🔄 **Testing**: dbt tests implemented, needs Python unit testing
 
 This project demonstrates enterprise-level data engineering capabilities with both technical depth and clear business value, making it an excellent showcase for data engineering interviews and real-world applications.
+
+---
+
+## Dashboard (Streamlit)
+
+### Overview
+
+The repository includes a modular Streamlit dashboard that reads directly from the dbt marts in BigQuery.
+
+- Entry point: `streamlit_app.py`
+- Modules:
+  - `frontend/filters.py`: Renders sidebar filters and builds SQL WHERE clauses (metric-only)
+  - `frontend/overview.py`: Overview charts and insights
+  - `frontend/finder.py`: Placeholder for “Find your own dog” page
+
+### Design Choices
+
+- Metric-only UI (kg, cm) to ensure consistent units across visuals and filters
+- Tabs instead of sidebar navigation to keep the main view focused
+- Caching with `st.cache_data(ttl=600)` for responsive queries
+
+### Query Notes
+
+- Temperament query uses `UNNEST` joined in the FROM clause for valid syntax
+- Family suitability filters apply to `dim_temperament` with a clear alias (`tt`)
+- IN-clause values are safely quoted to avoid syntax errors
+
+### How to Run
+
+```bash
+streamlit run /Users/hendrik/Documents/Repositories2/dogs-as-a-service-pipeline/streamlit_app.py
+```
+
+Requirements:
+
+- `st.secrets["gcp_service_account"]` configured with a valid BigQuery service account
+- dbt marts available in the configured project (e.g., `..._marts_core` dataset)

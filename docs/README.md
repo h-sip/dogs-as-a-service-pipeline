@@ -29,9 +29,21 @@ These documents provide code agents with:
 
 ## Project Status
 
-**Current State**: Functional ETL pipeline with dual storage (BigQuery + Cloud Storage)
-**Documentation Generated**: August 26, 2025
+**Current State**: Functional ETL pipeline with dual storage (BigQuery + Cloud Storage) and a modular Streamlit dashboard backed by dbt marts
+**Last Updated**: August 26, 2025
 **Target Audience**: AI code agents, developers, and DevOps engineers
+
+## Recent Updates
+
+- Added a modular Streamlit frontend (`streamlit_app.py`) with tabs:
+  - `frontend/overview.py`: Overview charts
+  - `frontend/finder.py`: Placeholder “Find your own dog” page
+  - `frontend/filters.py`: Sidebar filters and SQL clause builder
+- UI set to metric-only (kg/cm). Removed imperial units from the app.
+- How to run the app:
+  ```bash
+  streamlit run /Users/hendrik/Documents/Repositories2/dogs-as-a-service-pipeline/streamlit_app.py
+  ```
 
 ## Quick Navigation
 

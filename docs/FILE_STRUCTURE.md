@@ -11,6 +11,10 @@ dogs-as-a-service-pipeline/
 │   ├── FILE_STRUCTURE.md            # This file - directory structure
 │   ├── PROJECT_OVERVIEW.md          # Project summary and roadmap
 │   └── README.md                    # Documentation overview
+├── frontend/                        # Streamlit modular frontend
+│   ├── overview.py                  # Overview page renderer
+│   ├── finder.py                    # Finder placeholder page
+│   └── filters.py                   # Sidebar filters and SQL clause builder
 ├── src/                             # ETL Pipeline source code
 │   └── dog_api_pipeline.py          # Main ETL pipeline implementation (111 lines)
 ├── models/                          # dbt transformation models
@@ -36,6 +40,7 @@ dogs-as-a-service-pipeline/
 ├── requirements.txt                 # Python requirements (legacy)
 ├── CLAUDE.md                        # AI development guidance
 ├── README.md                        # Project overview incl. dbt documentation
+├── streamlit_app.py                 # Streamlit entrypoint using modular frontend
 ├── README_dbt.md                    # Deprecated; content merged into README.md
 ├── main.py                          # Cloud Function entry point (8 lines)
 ├── pyproject.toml                   # Python project configuration and dependencies
