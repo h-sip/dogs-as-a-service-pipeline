@@ -14,10 +14,7 @@ This is a **functional ETL data pipeline** called "dogs-as-a-service-pipeline" t
 - ✅ **Cloud Function**: HTTP-triggered serverless execution
 - ✅ **Data Processing**: 172 dog breeds with metadata enrichment
 - ✅ **Modern Tooling**: DLT framework, UV package manager, Python 3.11+
-- ❌ **Testing**: No test suite implemented yet
-- ❌ **CI/CD**: No automated deployment pipeline
-- ❌ **Monitoring**: Basic logging only, no alerting
-
+- ✅ **CI/CD**: GitHub Actions for automated testing and deployment
 ## Architecture Quick Reference
 
 ### Data Flow
@@ -40,6 +37,19 @@ TheDogAPI → Cloud Function → Dual Storage (GCS + BigQuery)
 
 ## Development Commands
 
+### CI/CD Pipeline
+```bash
+# Automated testing on PR (GitHub Actions)
+# - Runs dbt deps, compile, run --target dev, test
+# - Uses service account authentication
+# - Tests against development dataset
+
+# Production deployment on merge to main
+# - Runs dbt run --target prod
+# - Deploys to production dataset
+# - Automated via GitHub Actions
+```
+
 ### Local Development
 ```bash
 # Install dependencies
@@ -57,14 +67,17 @@ jupyter notebook eda_testing.ipynb
 
 ### Testing Commands
 ```bash
-# Currently no tests implemented
-# TODO: Add pytest framework
+# dbt tests (automated in CI/CD)
+dbt test
+
+# Python unit tests (none implemented)
 # pytest tests/
 ```
 
 ### Deployment Commands
 ```bash
-# Deploy to Google Cloud Functions
+# Automated via GitHub Actions on PR merge to main
+# Manual deployment:
 gcloud functions deploy dog-pipeline-handler \
     --runtime python311 \
     --source . \
@@ -174,9 +187,9 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ### Immediate Improvements Needed
 1. **Testing Framework**: Add pytest with unit and integration tests
-2. **CI/CD Pipeline**: GitHub Actions for automated deployment
-3. **Monitoring**: Add Cloud Monitoring alerting for failures
-4. **Data Validation**: Add explicit data quality checks
+2. **Monitoring**: Add Cloud Monitoring alerting for failures
+3. **Data Validation**: Add explicit data quality checks
+4. **Environment Protection**: Add manual approval for production deployments
 
 ### Medium-Term Enhancements
 1. **Silver/Gold Layers**: Add data transformation and analytics layers

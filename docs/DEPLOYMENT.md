@@ -2,7 +2,44 @@
 
 ## Overview
 
-This guide covers deploying the dogs-as-a-service-pipeline to Google Cloud Platform as a Cloud Function with scheduled execution.
+This guide covers deploying the dogs-as-a-service-pipeline to Google Cloud Platform with automated CI/CD via GitHub Actions. The deployment includes both ETL pipeline (Cloud Functions) and dbt analytics (BigQuery).
+
+## 🚀 Quick Deployment (Recommended)
+
+### GitHub Actions CI/CD Pipeline
+
+The project includes automated CI/CD workflows:
+
+- **PR Testing**: `.github/workflows/pr-tests.yml` - Runs dbt compile/run/test on PRs
+- **Production Deploy**: `.github/workflows/deploy-prod.yml` - Deploys to production on merge to main
+
+#### Setup GitHub Actions:
+
+1. **Repository Secrets** (Settings → Secrets → Actions):
+   ```
+   GCP_SA_KEY: [Contents of your service account JSON file]
+   ```
+
+2. **Environment Variables** (Optional):
+   ```
+   DBT_PROJECT_ID: your-gcp-project-id
+   DBT_DATASET_DEV: dog_explorer_dev 
+   DBT_DATASET_PROD: dog_explorer
+   ```
+
+3. **GitHub Environments**:
+   - Create `testing` environment for PR workflows
+   - Create `production` environment for main branch deployments
+
+#### Workflow Triggers:
+- **Pull Requests** → Automated testing against dev dataset
+- **Merge to Main** → Automated production deployment
+
+---
+
+## 📋 Manual Deployment (Alternative)
+
+For manual deployment or local development setup:
 
 ## Prerequisites
 
@@ -737,54 +774,28 @@ gcloud functions deploy dbt-deploy-handler \
     --service-account dogs-pipeline-service@YOUR_PROJECT_ID.iam.gserviceaccount.com
 ```
 
-#### 3. CI/CD Integration
+#### 3. CI/CD Integration (✅ Already Implemented)
 
-Create GitHub Actions workflow `.github/workflows/dbt_deploy.yml`:
+The project includes GitHub Actions workflows:
 
-```yaml
-name: dbt Production Deployment
+**PR Testing Workflow** (`.github/workflows/pr-tests.yml`):
+- Triggers on PRs to main/dev branches
+- Runs dbt deps, compile, run --target dev, test
+- Uses service account authentication via GitHub secrets
+- Tests against development dataset
 
-on:
-  push:
-    branches: [main]
-    paths: ['models/**', 'dbt_project.yml', 'packages.yml']
+**Production Deployment Workflow** (`.github/workflows/deploy-prod.yml`):
+- Triggers on merge to main branch
+- Runs dbt run --target prod and dbt test --target prod
+- Deploys to production dataset
+- Uses separate production environment for secrets
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-        
-    - name: Install dbt
-      run: |
-        pip install dbt-core dbt-bigquery
-        
-    - name: Set up Google Cloud Auth
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
-        
-    - name: Install dbt dependencies
-      run: dbt deps
-      
-    - name: Run dbt models
-      run: dbt run --target prod
-      
-    - name: Test dbt models  
-      run: dbt test --target prod
-      
-    - name: Generate documentation
-      run: dbt docs generate --target prod
-      
-    - name: Upload docs to Cloud Storage
-      run: gsutil -m cp -r target/ gs://${{ secrets.GCP_PROJECT }}-dbt-docs/
-```
+**Key Features:**
+- ✅ Automated testing on every PR
+- ✅ Production deployment on main branch merge
+- ✅ Environment-specific configurations (dev/prod)
+- ✅ Service account authentication
+- ✅ Error handling and comprehensive logging
 
 ### Monitoring and Observability
 
@@ -968,4 +979,37 @@ gsutil -m cp -r target/ gs://YOUR_BUCKET/dbt-docs/
 gsutil iam ch allUsers:objectViewer gs://YOUR_BUCKET/dbt-docs
 ```
 
-This comprehensive deployment guide covers both the ETL pipeline and dbt analytics layer, providing end-to-end deployment capabilities for the complete data platform.
+## 🔄 Development Workflow with CI/CD
+
+### Recommended Workflow:
+
+1. **Feature Development**:
+   ```bash
+   git checkout -b feature/new-model
+   # Make changes to dbt models
+   dbt run --target dev  # Test locally
+   git add . && git commit -m "Add new model"
+   git push origin feature/new-model
+   ```
+
+2. **Create Pull Request**:
+   - GitHub Actions automatically runs PR testing workflow
+   - Tests run against development dataset
+   - Review results in Actions tab
+
+3. **Merge to Production**:
+   ```bash
+   git checkout main
+   git merge feature/new-model
+   git push origin main
+   ```
+   - GitHub Actions automatically deploys to production
+   - dbt models run against production dataset
+
+### Monitoring CI/CD:
+
+- **GitHub Actions**: Repository → Actions tab
+- **BigQuery**: Monitor dataset updates in Cloud Console  
+- **Logs**: Check workflow logs for debugging
+
+This comprehensive deployment guide covers both the ETL pipeline and dbt analytics layer with modern CI/CD practices, providing automated end-to-end deployment capabilities for the complete data platform.

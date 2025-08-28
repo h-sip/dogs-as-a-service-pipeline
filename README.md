@@ -33,7 +33,24 @@ A comprehensive **end-to-end data engineering platform** that demonstrates moder
 
 ## 🚀 Quick Start
 
-### Manual Setup
+### CI/CD Automated Deployment (Recommended)
+
+1. **Setup GitHub Repository**:
+   - Fork/clone this repository
+   - Configure GitHub Secrets (see [Deployment Guide](docs/DEPLOYMENT.md))
+
+2. **GitHub Secrets Required**:
+   ```
+   Repository Settings → Secrets → Actions:
+   GCP_SA_KEY: [Your service account JSON content]
+   ```
+
+3. **Automated Workflow**:
+   - **Pull Requests** → Automatic testing against dev dataset
+   - **Merge to Main** → Automatic production deployment
+   - Monitor progress in GitHub Actions tab
+
+### Manual Setup (Alternative)
 
 For detailed step-by-step instructions, see the [Complete Setup Guide](docs/SETUP_GUIDE.md).
 
@@ -400,6 +417,8 @@ Business impact: adoption teams can prioritize small/medium, high‑affection/in
 - **UV**: Fast Python package management
 - **Jupyter**: Interactive data exploration
 - **Google Cloud SDK**: Cloud deployment
+- **GitHub Actions**: Automated CI/CD workflows
+- **Environment Separation**: Dev/prod dataset isolation
 
 ## 📚 Documentation
 
@@ -417,18 +436,34 @@ Business impact: adoption teams can prioritize small/medium, high‑affection/in
 
 ## 🔧 Development
 
-### Local Development Workflow
+### Recommended CI/CD Workflow
+```bash
+# 1. Create feature branch
+git checkout -b feature/breed-analysis
+
+# 2. Make changes and test locally (optional)
+dbt run --target dev
+
+# 3. Create Pull Request
+git push origin feature/breed-analysis
+# → Triggers automated testing in GitHub Actions
+
+# 4. Review and merge
+# → Automatically deploys to production
+```
+
+### Local Development (Alternative)
 ```bash
 # ETL Development
 python -c "from src.dog_api_pipeline import fetch_dog_breeds; print(len(list(fetch_dog_breeds())))"
 
 # dbt Development  
-dbt run --select staging
-dbt run --select dim_breeds+
+dbt run --select staging --target dev
+dbt run --select dim_breeds+ --target dev
 dbt docs serve --port 8080
 ```
 
-### Production Deployment
+### Manual Production Deployment (Backup)
 ```bash
 # Deploy ETL Pipeline
 gcloud functions deploy dog-pipeline-handler \
@@ -441,6 +476,12 @@ gcloud functions deploy dog-pipeline-handler \
 dbt run --target prod
 dbt test --target prod
 ```
+
+### Monitoring CI/CD
+- **GitHub Actions**: Repository → Actions tab
+- **Workflow Logs**: Detailed execution logs for debugging
+- **PR Status**: Automated test results on pull requests
+- **Deployment Status**: Production deployment confirmations
 
 ### Performance Considerations (dbt)
 - Materialization strategy: staging as views for fast iteration; marts as tables for analytics
