@@ -3,7 +3,7 @@ import pandas as pd
 from google.oauth2 import service_account
 from google.cloud import bigquery
 from frontend.overview import render_overview
-from frontend.finder import render_finder_placeholder
+from frontend.finder import render_finder
 from frontend.filters import render_filters
 
 st.set_page_config(page_title="Dogs as a Service - Explorer", page_icon="🐶", layout="wide")
@@ -36,7 +36,7 @@ filters_clause = filters["filters_clause"]
 temp_clause = filters["temp_clause"]
 
 
-tab_overview, tab_finder = st.tabs(["Overview", "Find your own dog"])
+tab_overview, tab_finder = st.tabs(["Overview", "Find Your Own Dog"])
 
 with tab_overview:
     render_overview(
@@ -47,4 +47,9 @@ with tab_overview:
     )
 
 with tab_finder:
-    render_finder_placeholder()
+    render_finder(
+        run_query_df,
+        {"dim_breeds": TABLE_DIM_BREEDS, "dim_temperament": TABLE_DIM_TEMPERAMENT},
+        filters_clause,
+        temp_clause,
+    )
