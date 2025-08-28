@@ -44,13 +44,13 @@ models:
     +materialized: view
     staging:
       +materialized: view
-      +schema: "dog_explorer_dev_staging"
+      +schema: "{{ target.dataset }}_staging"
     marts:
       +materialized: table
-      +schema: "dog_explorer_dev_marts"
+      +schema: "{{ target.dataset }}_marts"
       core:
         +materialized: table
-        +schema: "dog_explorer_dev_marts_core"
+        +schema: "{{ target.dataset }}_marts_core"
 
 # Test configurations
 tests:
