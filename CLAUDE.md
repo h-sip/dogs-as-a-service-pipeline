@@ -82,7 +82,11 @@ gcloud functions deploy dog-pipeline-handler \
     --runtime python311 \
     --source . \
     --entry-point dog_pipeline_handler \
-    --trigger-http
+    --trigger-http \
+    --allow-unauthenticated \
+    --memory 512MB \
+    --timeout 540s \
+    --update-env-vars BUCKET_URL=gs://dog-breed-raw-data,DESTINATION__BIGQUERY__LOCATION=europe-north2
 
 # Test deployed function
 curl -X POST https://REGION-PROJECT.cloudfunctions.net/dog-pipeline-handler

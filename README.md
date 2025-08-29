@@ -238,7 +238,8 @@ gcloud functions deploy dog-pipeline-handler \
     --trigger-http \
     --allow-unauthenticated \
     --memory 512MB \
-    --timeout 540s
+    --timeout 540s \
+    --update-env-vars BUCKET_URL=gs://dog-breed-raw-data,DESTINATION__BIGQUERY__LOCATION=europe-north2
 
 # Set up Cloud Scheduler for automated execution
 gcloud scheduler jobs create http dog-pipeline-scheduler \
@@ -470,7 +471,11 @@ gcloud functions deploy dog-pipeline-handler \
     --runtime python311 \
     --source . \
     --entry-point dog_pipeline_handler \
-    --trigger-http
+    --trigger-http \
+    --allow-unauthenticated \
+    --memory 512MB \
+    --timeout 540s \
+    --update-env-vars BUCKET_URL=gs://dog-breed-raw-data,DLT_DESTINATION__BIGQUERY__LOCATION=europe-north2
 
 # Deploy dbt Models
 dbt run --target prod

@@ -151,7 +151,7 @@ gcloud functions deploy dog-pipeline-handler \
     --allow-unauthenticated \
     --timeout 540s \
     --memory 512MB \
-    --service-account dogs-pipeline-service@YOUR_PROJECT_ID.iam.gserviceaccount.com
+    --update-env-vars BUCKET_URL=gs://dog-breed-raw-data,DESTINATION__BIGQUERY__LOCATION=europe-north2
 ```
 
 ### 2. Advanced Deployment Configuration
@@ -168,7 +168,8 @@ availableMemoryMb: 512
 serviceAccountEmail: dogs-pipeline-service@YOUR_PROJECT_ID.iam.gserviceaccount.com
 environmentVariables:
   GOOGLE_CLOUD_PROJECT: YOUR_PROJECT_ID
-  DLT_DESTINATION__BIGQUERY__LOCATION: US
+  DESTINATION__BIGQUERY__LOCATION: europe-north2
+  BUCKET_URL: gs://dog-breed-raw-data
 labels:
   service: dogs-pipeline
   environment: production
