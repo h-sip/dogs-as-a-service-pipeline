@@ -1,5 +1,27 @@
 # 🐕 Dogs-as-a-Service Data Platform
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#️-architecture)
+- [Quick Start](#-quick-start)
+  - [CI/CD Automated Deployment (Recommended)](#cicd-automated-deployment-recommended)
+  - [Manual Setup (Alternative)](#manual-setup-alternative)
+  - [Prerequisites](#prerequisites)
+  - [1. Local Development Setup](#1-local-development-setup)
+  - [2. Production Deployment](#2-production-deployment)
+  - [3. Secrets Management](#3-secrets-management)
+  - [4. dbt Project Details](#4-dbt-project-details)
+  - [5. Explore the Data](#5-explore-the-data)
+- [Data Models & Analytics](#-data-models--analytics)
+- [Quality & Testing](#-quality--testing)
+- [Business Impact](#-business-impact)
+- [Technology Stack](#️-technology-stack)
+- [Documentation](#-documentation)
+- [Development](#-development)
+- [Data Sample](#-data-sample)
+- [Troubleshooting](#troubleshooting)
+
 ## Overview 
 
 A comprehensive **end-to-end data engineering platform** that demonstrates modern data architecture patterns through dog breed analytics. This project combines a robust ETL pipeline with advanced analytics capabilities, showcasing both technical depth and practical business value.
@@ -33,7 +55,7 @@ A comprehensive **end-to-end data engineering platform** that demonstrates moder
 
 ## 🚀 Quick Start
 
-### CI/CD Automated Deployment (Recommended)
+### CI/CD Automated Deployment
 
 1. **Setup GitHub Repository**:
    - Fork/clone this repository
@@ -50,7 +72,7 @@ A comprehensive **end-to-end data engineering platform** that demonstrates moder
    - **Merge to Main** → Automatic production deployment
    - Monitor progress in GitHub Actions tab
 
-### Manual Setup (Alternative)
+### Manual Setup
 
 For detailed step-by-step instructions, see the [Complete Setup Guide](docs/SETUP_GUIDE.md).
 
@@ -67,7 +89,7 @@ For detailed step-by-step instructions, see the [Complete Setup Guide](docs/SETU
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/your-username/dogs-as-a-service-pipeline.git
 cd dogs-as-a-service-pipeline
 
 # Install UV (if not already installed)
@@ -111,29 +133,46 @@ gcloud iam service-accounts keys create dbt-sa.json \
 export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/dbt-sa.json"
 ```
 
-#### 1.3 BigQuery Dataset Setup
+#### 1.3 Cloud Storage Setup
 
 ```bash
-# Create development datasets
+# Create Cloud Storage bucket for raw data
+gcloud mb gs://dog-breed-raw-data-YOUR_PROJECT_ID
+```
+
+#### 1.4 BigQuery Dataset Setup
+
+```bash
+# Create bronze dataset for raw data
+bq mk --dataset \
+    --description "Bronze layer - raw dog breed data" \
+    --location=europe-north2 \
+    YOUR_PROJECT_ID:bronze
+
+# Create development datasets for dbt
 bq mk --dataset \
     --description "Development analytics dataset" \
+    --location=europe-north2 \
     YOUR_PROJECT_ID:dog_explorer_dev
 
 bq mk --dataset \
     --description "Development dbt tests dataset" \
+    --location=europe-north2 \
     YOUR_PROJECT_ID:dog_explorer_dev_tests
 
-# Create production datasets
+# Create production datasets for dbt
 bq mk --dataset \
     --description "Production analytics dataset" \
+    --location=europe-north2 \
     YOUR_PROJECT_ID:dog_explorer
 
 bq mk --dataset \
     --description "Production dbt tests dataset" \
+    --location=europe-north2 \
     YOUR_PROJECT_ID:dog_explorer_tests
 ```
 
-#### 1.4 dbt Configuration
+#### 1.5 dbt Configuration
 
 1. **Copy and configure profiles.yml template:**
 
@@ -180,7 +219,7 @@ dog_breed_explorer:
 dbt deps
 ```
 
-#### 1.5 Streamlit Configuration
+#### 1.6 Streamlit Configuration
 
 1. **Create Streamlit secrets template:**
 
@@ -211,9 +250,12 @@ auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
 client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/your-service-account%40YOUR_PROJECT_ID.iam.gserviceaccount.com"
 ```
 
-#### 1.6 Test Local Setup
+#### 1.7 Test Local Setup
 
 ```bash
+# Activate UV environment (if using UV)
+uv sync
+
 # Test ETL pipeline
 python main.py
 
@@ -221,8 +263,11 @@ python main.py
 dbt run --target dev
 dbt test --target dev
 
-# Test Streamlit app
+# Test Streamlit app (optional)
 streamlit run streamlit_app.py
+
+# Verify data was loaded
+bq query "SELECT COUNT(*) as breed_count FROM \`YOUR_PROJECT_ID.bronze.dog_breeds\`"
 ```
 
 ### 2. Production Deployment
@@ -475,7 +520,7 @@ gcloud functions deploy dog-pipeline-handler \
     --allow-unauthenticated \
     --memory 512MB \
     --timeout 540s \
-    --update-env-vars BUCKET_URL=gs://dog-breed-raw-data,DLT_DESTINATION__BIGQUERY__LOCATION=europe-north2
+    --update-env-vars BUCKET_URL=gs://dog-breed-raw-data,DESTINATION__BIGQUERY__LOCATION=europe-north2
 
 # Deploy dbt Models
 dbt run --target prod
@@ -507,3 +552,67 @@ The pipeline processes 172 dog breeds with rich metadata:
   "primary_temperament_category": "Social/Friendly"
 }
 ```
+
+## Troubleshooting
+
+### Common Issues
+
+#### Authentication Problems
+```bash
+# Check if authenticated
+gcloud auth list
+
+# Re-authenticate if needed
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+
+# Verify service account key
+export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/dbt-sa.json"
+```
+
+#### ETL Pipeline Errors
+```bash
+# Check Cloud Function logs
+gcloud functions logs read dog-pipeline-handler --limit 50
+
+# Test pipeline locally
+python main.py
+
+# Debug API connection
+python -c "import requests; print(requests.get('https://api.thedogapi.com/v1/breeds').status_code)"
+```
+
+#### dbt Issues
+```bash
+# Check profiles
+dbt debug
+
+# Clear compiled files
+dbt clean
+
+# Re-install dependencies
+dbt deps
+```
+
+#### BigQuery Issues
+```bash
+# Check dataset exists
+bq ls YOUR_PROJECT_ID:
+
+# Verify table structure
+bq show YOUR_PROJECT_ID:bronze.dog_breeds
+```
+
+### Getting Help
+
+- **Issues**: Report bugs at [GitHub Issues](https://github.com/your-username/dogs-as-a-service-pipeline/issues)
+- **Documentation**: Full documentation in [`docs/`](docs/) directory
+- **dbt Docs**: Run `dbt docs generate && dbt docs serve` for model documentation
+
+---
+
+**🔗 Quick Links:**
+- [Complete Setup Guide](docs/SETUP_GUIDE.md)
+- [Architecture Documentation](docs/ARCHITECTURE.md) 
+- [API Reference](docs/API_REFERENCE.md)
+- [Deployment Guide](docs/DEPLOYMENT.md)
